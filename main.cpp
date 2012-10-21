@@ -6,6 +6,19 @@
 #include <algorithm>
 #include <string.h>
 
+#include <xbyak/xbyak.h>
+
+class CodeGen : public Xbyak::CodeGenerator {
+public:
+	CodeGen() : CodeGenerator(1024 * 64, Xbyak::AutoGrow)
+	{
+		using namespace Xbyak;
+		
+		mov(rax, 42);
+		ret();
+	}
+};
+
 class ParseError : public std::runtime_error
 {
 public:
@@ -214,6 +227,12 @@ int
 main(int argc, char* argv[])
 try
 {
+	CodeGen cg; cg.ready();
+	int (*f)() = reinterpret_cast<int (*)()>(cg.getCode());
+	printf("f() = %d\n", f());
+
+	return 0;
+
 	if(argc != 2)
 	{
 		std::cerr << "Usage: " << argv[0] << " code" << std::endl;	
@@ -234,6 +253,4 @@ catch(std::exception& e)
 	std::cerr << "caught exception: " << e.what();
 	return 1;
 }
-
-	
 
