@@ -2,7 +2,7 @@
 namespace {
 %}
 
-NCCLang = s:Sum EndOfFile { yythis->setRootNode(s); }
+NCCLang = _ s:Sum EndOfFile { yythis->setRootNode(s); }
 
 EndOfFile = !.
 

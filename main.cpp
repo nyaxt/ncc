@@ -1,9 +1,18 @@
 #include <iostream>
+#include <stdexcept>
 #include <memory>
 #include <vector>
 #include <functional>
 #include <algorithm>
 #include <string.h>
+
+class ParseError : public std::runtime_error
+{
+public:
+	ParseError(const std::string& what = "parse error")
+	:	std::runtime_error(what)
+	{ /* NOP */ }
+};
 
 //! ast node interface
 class ASTNode
@@ -46,7 +55,7 @@ private:
 
 ConstNode::~ConstNode()
 {
-
+	/* NOP */
 }
 
 void
@@ -100,6 +109,16 @@ public:
 	void dump(std::ostream& s);
 
 	// ====== below funcs only to be called from parser impl ======
+	
+	size_t consume(char* buf, size_t sizeBuf)
+	{
+		size_t left = m_code.size() - m_sizeConsumed;	
+		size_t sizeToConsume = std::min(left, sizeBuf);
+		::memcpy(buf, m_code.data() + m_sizeConsumed, sizeToConsume);
+		m_sizeConsumed += sizeToConsume;
+
+		return sizeToConsume;
+	}
 
 	typedef size_t noded_t;
 
@@ -135,15 +154,22 @@ public:
 	}
 
 private:
+	//! program code to be parsed
 	std::string m_code;
+
+	//! number of bytes consumed by the parser by consume()
+	size_t m_sizeConsumed = 0;
+
 	std::vector<PASTNode> m_astnodes;
 	ASTNode* m_root = nullptr;
 };
 
-#define YY_CTX_LOCAL
-#define YY_CTX_MEMBERS Parser* pthis;
 #define YYSTYPE Parser::noded_t
 #define yythis ctx->pthis
+#define YY_INPUT(buf, result, max_size) \
+	do { result = yythis->consume(buf, max_size); } while(0)
+#define YY_CTX_LOCAL
+#define YY_CTX_MEMBERS Parser* pthis;
 #include "parse.impl.h"
 
 namespace {
@@ -165,24 +191,49 @@ Parser::parse()
 	::memset(&ctx, 0, sizeof(yycontext));
 	ctx.pthis = this;
 
-	printf("yyparse(): %d\n", yyparse(&ctx));
+	int r = yyparse(&ctx);
 
 	yyfree(&ctx);
+	
+	if(r == 0)
+	{
+		throw ParseError();	
+	}
 }
 
 void
 Parser::dump(std::ostream& s)
 {
-	m_root->dump(s);
+	if(m_root)
+	{
+		m_root->dump(s);
+	}
 }
 
 int
 main(int argc, char* argv[])
+try
 {
-	Parser p("1+2"); p.parse();
+	if(argc != 2)
+	{
+		std::cerr << "Usage: " << argv[0] << " code" << std::endl;	
+		return 1;
+	}
+
+	std::string code(argv[1]);
+
+	Parser p(code);
+	p.parse();
 	p.dump(std::cout);
 	std::cout << std::endl;
-	
+
 	return 0;
 }
+catch(std::exception& e)
+{
+	std::cerr << "caught exception: " << e.what();
+	return 1;
+}
+
+	
 
