@@ -6,15 +6,16 @@ NCCLang = s:Sum EndOfFile { yythis->setRootNode(s); }
 
 EndOfFile = !.
 
-Sum = l:Term ( PLUS r:Term	{ printf("+ %d %d\n", l, r); $$ = l; }
-             | MINUS r:Term	{ printf("- %d %d\n", l, r); $$ = l; }
-	     )*
+Sum = l:Term (
+	  PLUS r:Term	{ $$ = l = yythis->addNode(new ApplyNode("+", yythis->getNodes({l, r}))); }
+	| MINUS r:Term	{ $$ = l = yythis->addNode(new ApplyNode("-", yythis->getNodes({l, r}))); }
+	)*
 PLUS = '+' _
 MINUS = '-' _
 
 Term = n:NumL { $$ = n; }
 
-NumL = < [0-9]+ > - { $$ = yythis->addNode(new ValL(atoi(yytext))); }
+NumL = < [0-9]+ > - { $$ = yythis->addNode(new ConstNode(atoi(yytext))); }
 
 _ = (' ' | '\r' | '\n') *
 
