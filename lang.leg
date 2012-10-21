@@ -1,0 +1,22 @@
+%{
+namespace {
+%}
+
+NCCLang = s:Sum EndOfFile
+
+EndOfFile = !.
+
+Sum = l:Term ( PLUS r:Term	{ printf("+ %d %d\n", l, r); $$ = l + r; }
+             | MINUS r:Term	{ printf("- %d %d\n", l, 4); $$ = l - r; }
+	     )*
+PLUS = '+' _
+MINUS = '-' _
+
+Term = n:NumL { $$ = n; }
+
+NumL = < [0-9]+ > - { int i; $$ = i = atoi(yytext); printf("numl : %d\n", i); }
+
+_ = (' ' | '\r' | '\n') *
+
+%%
+}
