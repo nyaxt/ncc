@@ -8,21 +8,45 @@
 namespace ncc
 {
 
-//! ast node interface
+class ASTNode;
+typedef std::shared_ptr<ASTNode> PASTNode;
+
+//! an ast node
 class ASTNode
 {
 public:
-	virtual ~ASTNode() = 0;
+	enum class type_t
+	{
+		CONSTANT,
+		FUNCAPPLY
+	};
 
-	virtual void dump(std::ostream& s) const = 0;
+	static PASTNode newConstant(int x);
+	static PASTNode newFuncApply(std::string funcname, std::vector<PASTNode> args);
+
+	~ASTNode();
+
+	void addChild(PASTNode n)
+	{
+		m_children.push_back(std::move(n));	
+	}
+
+	const std::vector<PASTNode>& getChildren() const
+	{
+		return m_children;
+	}
+
+	void dump(std::ostream& s) const;
+
+private:
+	ASTNode(type_t t);
+
+	const type_t m_type;
+	std::vector<PASTNode> m_children;
+
+	int m_constant = 0;
+	std::string m_funcname;
 };
-typedef std::shared_ptr<ASTNode> PASTNode;
-
-inline
-ASTNode::~ASTNode()
-{
-	/* NOP */
-}
 
 inline
 std::ostream&
@@ -33,38 +57,10 @@ operator<<(std::ostream& s, const ASTNode& n)
 	return s;
 }
 
-//! liretal
-class ConstNode : public ASTNode
-{
-public:
-	ConstNode(int n)
-	: m_n(n) { /* NOP */ }
-
-	~ConstNode();
-
-	virtual void dump(std::ostream& s) const override;	
-
-private:
-	int m_n;
-};
-
-//! function application
-class ApplyNode : public ASTNode
-{
-public:
-	ApplyNode(std::string funcname, std::vector<PASTNode> args)
-	:	m_funcname(std::move(funcname)), m_args(std::move(args))
-	{ /* NOP */ }
-
-	~ApplyNode();
-
-	virtual void dump(std::ostream& s) const override;	
-
-private:
-	std::string m_funcname;
-	std::vector<PASTNode> m_args;
-};
+void foreachASTNode(const PASTNode& root, const std::function<void (const PASTNode&)>& f);
+std::vector<PASTNode> findTerminalNodes(const PASTNode& root);
 
 } // end of namespace ncc
 
 #endif // _ncc_ast_h_
+

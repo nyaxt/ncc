@@ -7,15 +7,15 @@ NCCLang = _ s:Sum EndOfFile { yythis->setRootNode(s); }
 EndOfFile = !.
 
 Sum = l:Term (
-	  PLUS r:Term	{ $$ = l = yythis->addNode(new ApplyNode("+", yythis->getNodes({l, r}))); }
-	| MINUS r:Term	{ $$ = l = yythis->addNode(new ApplyNode("-", yythis->getNodes({l, r}))); }
+	  PLUS r:Term	{ $$ = l = yythis->addNode(ASTNode::newFuncApply("+", yythis->getNodes({l, r}))); }
+	| MINUS r:Term	{ $$ = l = yythis->addNode(ASTNode::newFuncApply("-", yythis->getNodes({l, r}))); }
 	)*
 PLUS = '+' _
 MINUS = '-' _
 
 Term = n:NumL { $$ = n; }
 
-NumL = < [0-9]+ > - { $$ = yythis->addNode(new ConstNode(atoi(yytext))); }
+NumL = < [0-9]+ > - { $$ = yythis->addNode(ASTNode::newConstant(atoi(yytext))); }
 
 _ = (' ' | '\r' | '\n') *
 

@@ -32,11 +32,11 @@ public:
 
 	typedef size_t noded_t;
 
-	noded_t addNode(ASTNode* newnode)
+	noded_t addNode(PASTNode newnode)
 	{
 		std::cout << "addNode: " << *newnode << std::endl;
 
-		m_astnodes.push_back(PASTNode(newnode));
+		m_astnodes.push_back(std::move(newnode));
 		return m_astnodes.size() - 1;
 	}
 
