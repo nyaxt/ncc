@@ -9,16 +9,34 @@
 
 #include <xbyak/xbyak.h>
 
+namespace ncc
+{
+
 class CodeGen : public Xbyak::CodeGenerator {
 public:
-	CodeGen() : CodeGenerator(1024 * 64, Xbyak::AutoGrow)
+	CodeGen(const PASTNode& ast)
+	:	CodeGenerator(1024 * 64, Xbyak::AutoGrow),
+		m_ast(ast)
 	{
 		using namespace Xbyak;
+	}
+
+	void prologue()
+	{
 		
+	}
+	
+	void epilogue()
+	{
 		mov(rax, 42);
 		ret();
 	}
+
+private:
+	const PASTNode& m_ast;
 };
+
+} // end of namespace ncc
 
 using namespace ncc;
 
@@ -26,14 +44,6 @@ int
 main(int argc, char* argv[])
 try
 {
-#if 0
-	CodeGen cg; cg.ready();
-	int (*f)() = reinterpret_cast<int (*)()>(cg.getCode());
-	printf("f() = %d\n", f());
-
-	return 0;
-#endif
-
 	if(argc != 2)
 	{
 		std::cerr << "Usage: " << argv[0] << " code" << std::endl;	
@@ -42,6 +52,15 @@ try
 
 	std::string code(argv[1]);
 	PASTNode ast = parse(code); std::cout << *ast << std::endl; 
+
+	CodeGen cg(ast);
+	cg.prologue();
+	cg.epilogue();
+	
+	cg.ready();
+	int (*f)() = reinterpret_cast<int (*)()>(cg.getCode());
+	printf("f() = %d\n", f());
+
 	return 0;
 }
 catch(std::exception& e)
