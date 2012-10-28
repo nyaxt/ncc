@@ -22,6 +22,15 @@ ASTNode::newFuncApply(std::string funcname, std::vector<PASTNode> args)
 	return std::move(ret);
 }
 
+PASTNode
+ASTNode::newReturn(PASTNode retval)
+{
+	PASTNode ret(new ASTNode(type_t::RETURN));
+	ret->m_children.push_back(std::move(retval));
+
+	return std::move(ret);
+}
+
 ASTNode::ASTNode(type_t t)
 :	m_type(t)
 {
@@ -50,6 +59,10 @@ ASTNode::dump(std::ostream& s) const
 			if(m_children.back() != child) s << ", ";
 		}
 		s << ")";
+		break;
+
+	case type_t::RETURN:
+		s << "return " << *m_children.front();
 		break;
 
 	default:

@@ -2,7 +2,7 @@
 namespace {
 %}
 
-NCCLang = _ s:Sum EndOfFile { yythis->setRootNode(s); }
+NCCLang = _ s:Sum EndOfFile { yythis->setRootNode(yythis->addNode(ASTNode::newReturn(yythis->getNode(s)))); }
 
 EndOfFile = !.
 
