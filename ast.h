@@ -42,7 +42,14 @@ public:
 
 	int getConstant() const
 	{
+		NCC_ASSERT(m_type == type_t::CONSTANT);
 		return m_constant;
+	}
+
+	const std::string& getFuncName() const
+	{
+		NCC_ASSERT(m_type == type_t::FUNCAPPLY);
+		return m_funcname;
 	}
 
 	const std::vector<PASTNode>& getChildren() const

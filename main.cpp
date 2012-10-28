@@ -12,6 +12,40 @@
 namespace ncc
 {
 
+enum class reg_t
+{
+	RAX,
+	RCX,
+	RDX,
+	RBX,
+	RSP,
+	RBP,
+	RSI,
+	RDI,
+	R8,
+	R9,
+	R10,
+	R11,
+	R12,
+	R13,
+	R14,
+	R15
+};
+
+Xbyak::Reg
+toXbyakReg(reg_t reg)
+{
+	using Xbyak::Reg64;
+
+	switch(reg)
+	{
+	case reg_t::RAX: return Reg64(Reg64::RAX);
+	case reg_t::RCX: return Reg64(Reg64::RCX);
+	default:
+		NCC_ASSERT(false); /* not reached */
+	}
+}
+
 class CodeGen : public Xbyak::CodeGenerator
 {
 public:
@@ -21,13 +55,21 @@ public:
 
 	void emitAssignConstant(int x)
 	{
-		using namespace Xbyak;
 		mov(rax, x);
+	}
+
+	void emitSaveAccumulatorCF(reg_t reg)
+	{
+		mov(toXbyakReg(reg), rax);
+	}
+
+	void emitAddCF(reg_t regAddend)
+	{
+		add(rax, toXbyakReg(regAddend));	
 	}
 
 	void emitRet()
 	{
-		using namespace Xbyak;
 		ret();
 	}
 };
@@ -55,9 +97,16 @@ CodeFragment::~CodeFragment()
 class Code;
 typedef std::shared_ptr<Code> PCode;
 
+class SaveAccumulatorCF;
+
 class Code : public Dumpable
 {
 public:
+	void concat(Code& c)
+	{
+		for(auto& cf: c.m_cfs) m_cfs.push_back(cf);
+	}
+
 	void addFragment(PCodeFragment cf)
 	{
 		m_cfs.push_back(std::move(cf));
@@ -82,6 +131,8 @@ public:
 			cf->emit(cg);
 		}
 	}
+
+	reg_t saveAccumulator();
 
 	virtual void dump(std::ostream& s) const override
 	{
@@ -120,24 +171,58 @@ private:
 	int m_x;
 };
 
-enum class reg_t
+class SaveAccumulatorCF : public CodeFragment
 {
-	RAX,
-	RCX,
-	RDX,
-	RBX,
-	RSP,
-	RBP,
-	RSI,
-	RDI,
-	R8,
-	R9,
-	R10,
-	R11,
-	R12,
-	R13,
-	R14,
-	R15
+public:
+	SaveAccumulatorCF(reg_t reg)
+	:	m_reg(reg)
+	{ /* NOP */ }
+
+	virtual cost_t cost() const override { return 1.0; }
+
+	virtual void emit(CodeGen* cg) const override
+	{
+		cg->emitSaveAccumulatorCF(m_reg);
+	}
+
+	virtual void dump(std::ostream& s) const override
+	{
+		s << "save register " << static_cast<int>(m_reg) << ";";
+	}
+
+private:
+	reg_t m_reg;
+};
+
+reg_t
+Code::saveAccumulator()
+{
+	reg_t regUnused = reg_t::RCX; // FIXME: find unused reg for real
+	m_cfs.push_back(PCodeFragment(new SaveAccumulatorCF(regUnused)));
+	return regUnused;
+}
+
+class AddCF : public CodeFragment
+{
+public:
+	AddCF(reg_t regAddend)
+	:	m_regAddend(regAddend)
+	{ /* NOP */ }
+
+	virtual cost_t cost() const override { return 1.0; }
+
+	virtual void emit(CodeGen* cg) const override
+	{
+		cg->emitAddCF(m_regAddend);
+	}
+
+	virtual void dump(std::ostream& s) const override
+	{
+		s << "accum += reg " << static_cast<int>(m_regAddend) << ";";
+	}
+
+private:
+	reg_t m_regAddend;
 };
 
 class RetCF : public CodeFragment
@@ -171,6 +256,24 @@ patternMatch(const PASTNode& n)
 
 		candidates.push_back(std::move(code));
 	}
+	else if(n->getType() == ASTNode::type_t::FUNCAPPLY && n->getFuncName() == "+")
+	{
+		auto candA = patternMatch(n->getChildren()[0]);
+		auto candB = patternMatch(n->getChildren()[1]);
+
+		for(auto ca : candA)
+		{
+			for(auto cb : candB)
+			{
+				PCode code(new Code);
+				code->concat(*ca);
+				reg_t r = code->saveAccumulator();
+				code->concat(*cb);
+				code->addFragment(PCodeFragment(new AddCF(r)));
+				candidates.push_back(std::move(code));
+			}
+		}
+	}
 	else if(n->getType() == ASTNode::type_t::RETURN)
 	{
 		const PASTNode& nodeRetVal = n->getOnlyChild();
@@ -181,6 +284,7 @@ patternMatch(const PASTNode& n)
 		}
 	}
 
+	NCC_ASSERT(! candidates.empty());
 	return std::move(candidates);
 }
 
@@ -200,12 +304,6 @@ try
 
 	std::string code(argv[1]);
 	PASTNode ast = parse(code); std::cout << *ast << std::endl; 
-
-	auto tns = findTerminalNodes(ast);
-	for(const auto& tn: tns)
-	{
-		std::cout << "tn: " << *tn << std::endl;
-	}
 
 	std::vector<PCode> candidates = patternMatch(ast);
 	PCode bestCode = *std::min_element(candidates.begin(), candidates.end(), [](const PCode& ca, const PCode& cb) -> bool { return ca->cost() < cb->cost(); });
